@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>食屎啦你 - 小游戏</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Microsoft YaHei', sans-serif;
+            touch-action: none; /* 防止手机端滑动屏幕 */
+        }
+        h1 {
+            color: #fff;
+            text-shadow: 2px 2px 0px #000;
+            margin: 10px 0;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #87CEEB; /* 天蓝色背景 */
+        }
+        canvas {
+            display: block;
+        }
+        #score-board {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            text-shadow: 2px 2px 2px #000;
+        }
+        #lives-board {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            color: #fff;
+            font-size: 20px;
+            text-shadow: 2px 2px 2px #000;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            text-align: center;
+        }
+        button {
+            padding: 10px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff;
+            background-color: #FF4500;
+            border: 2px solid #fff;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.1s;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>食屎啦你 💩</h1>
+    
+    <div id="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        <div id="score-board">得分: 0</div>
+        <div id="lives-board">❤️❤️❤️</div>
+        
+        <div id="ui-layer">
+            <h2 id="ui-title" style="font-size: 36px; margin-bottom: 10px; text-shadow: 2px 2px 0 #000;">食屎啦你！</h2>
+            <p id="ui-desc" style="font-size: 16px;">控制嘴巴接住便便<br>支持: 左右键 / A,D / 鼠标 / 触摸</p>
+            <button id="start-btn">开始游戏</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreBoard = document.getElementById('score-board');
+    const livesBoard = document.getElementById('lives-board');
+    const uiLayer = document.getElementById('ui-layer');
+    const uiTitle = document.getElementById('ui-title');
+    const uiDesc = document.getElementById('ui-desc');
+    const startBtn = document.getElementById('start-btn');
+
+    // 游戏状态
+    let score = 0;
+    let lives = 3;
+    let isPlaying = false;
+    let animationId;
+    let frameCount = 0;
+
+    // 游戏对象
+    const bird = { x: 200, y: 80, size: 40, speed: 3, dx: 3, dropTimer: 0 };
+    const mouth = { x: 200, y: 530, size: 50, speed: 7 };
+    let poops = [];
+
+    // 键盘控制
+    const keys = { ArrowLeft: false, ArrowRight: false, a: false, d: false };
+
+    // 监听键盘
+    window.addEventListener('keydown', (e) => {
+        if(keys.hasOwnProperty(e.key)) keys[e.key] = true;
+    });
+    window.addEventListener('keyup', (e) => {
+        if(keys.hasOwnProperty(e.key)) keys[e.key] = false;
+    });
+
+    // 监听鼠标/触摸 (移动端+PC端适配)
+    function moveMouth(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        let newX = clientX - rect.left;
+        if(newX < mouth.size/2) newX = mouth.size/2;
+        if(newX > canvas.width - mouth.size/2) newX = canvas.width - mouth.size/2;
+        mouth.x = newX;
+    }
+
+    canvas.addEventListener('mousemove', (e) => { if(isPlaying) moveMouth(e.clientX); });
+    canvas.addEventListener('touchmove', (e) => { if(isPlaying) moveMouth(e.touches[0].clientX); e.preventDefault(); }, {passive: false});
+
+    // 开始游戏
+    startBtn.addEventListener('click', () => {
+        score = 0;
+        lives = 3;
+        poops = [];
+        bird.x = 200;
+        mouth.x = 200;
+        bird.speed = 3;
+        isPlaying = true;
+        uiLayer.style.display = 'none';
+        updateUI();
+        gameLoop();
+    });
+
+    function updateUI() {
+        scoreBoard.innerText = `得分: ${score}`;
+        let hearts = "";
+        for(let i=0; i<lives; i++) hearts += "❤️";
+        livesBoard.innerText = hearts;
+    }
+
+    function drawBackground() {
+        // 画电线杆
+        ctx.fillStyle = "#8B4513"; // 棕色木头
+        ctx.fillRect(30, 150, 20, 450); // 左杆
+        ctx.fillRect(350, 150, 20, 450); // 右杆
+        
+        // 画电线
+        ctx.strokeStyle = "#444";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, 100);
+        ctx.lineTo(400, 100); // 鸟站的线
+        ctx.moveTo(0, 130);
+        ctx.lineTo(400, 130);
+        ctx.stroke();
+    }
+
+    function update() {
+        frameCount++;
+        
+        // 难度曲线：随着分数增加，鸟移动变快，便便下落变快，拉屎频率变高
+        let difficultyMultiplier = 1 + (score * 0.05);
+        if(difficultyMultiplier > 2.5) difficultyMultiplier = 2.5; // 封顶难度
+
+        // 嘴巴键盘移动逻辑
+        if (keys.ArrowLeft || keys.a) mouth.x -= mouth.speed;
+        if (keys.ArrowRight || keys.d) mouth.x += mouth.speed;
+        // 限制嘴巴不出界
+        if (mouth.x < mouth.size/2) mouth.x = mouth.size/2;
+        if (mouth.x > canvas.width - mouth.size/2) mouth.x = canvas.width - mouth.size/2;
+
+        // 鸟的移动逻辑 (随机改变方向，碰到边缘反弹)
+        bird.x += bird.dx * difficultyMultiplier;
+        if (bird.x <= 40 || bird.x >= canvas.width - 40) {
+            bird.dx *= -1;
+        } else if (Math.random() < 0.02) { // 2%的概率突然调头
+            bird.dx *= -1;
+        }
+
+        // 鸟拉屎逻辑
+        bird.dropTimer--;
+        if (bird.dropTimer <= 0) {
+            poops.push({ 
+                x: bird.x, 
+                y: bird.y + 20, 
+                speed: (3 + Math.random() * 2) * difficultyMultiplier 
+            });
+            // 随机下次拉屎的时间 (40 到 100 帧之间，随难度降低间隔)
+            bird.dropTimer = Math.max(20, (60 + Math.random() * 40) / difficultyMultiplier);
+        }
+
+        // 便便逻辑
+        for (let i = poops.length - 1; i >= 0; i--) {
+            let p = poops[i];
+            p.y += p.speed;
+
+            // 碰撞检测 (圆形碰撞检测，让手感更好)
+            let dx = p.x - mouth.x;
+            let dy = p.y - mouth.y;
+            let distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance < 35) { // 接到了！
+                poops.splice(i, 1);
+                score++;
+                updateUI();
+            } 
+            else if (p.y > canvas.height) { // 漏掉了
+                poops.splice(i, 1);
+                lives--;
+                updateUI();
+                
+                // 屏幕震动效果 (简单模拟)
+                canvas.style.transform = "translateX(5px)";
+                setTimeout(() => canvas.style.transform = "translateX(-5px)", 50);
+                setTimeout(() => canvas.style.transform = "translateX(0)", 100);
+
+                if (lives <= 0) {
+                    gameOver();
+                }
+            }
+        }
+    }
+
+    function draw() {
+        // 清屏
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        drawBackground();
+
+        // 设置Emoji绘制属性
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        // 画鸟 🐦
+        ctx.font = `${bird.size}px Arial`;
+        // 如果鸟向左飞，反转画布画鸟（增加生动性）
+        ctx.save();
+        ctx.translate(bird.x, bird.y);
+        if(bird.dx < 0) { ctx.scale(-1, 1); }
+        ctx.fillText("🐦", 0, 0);
+        ctx.restore();
+
+        // 画便便 💩
+        ctx.font = "30px Arial";
+        for (let p of poops) {
+            ctx.fillText("💩", p.x, p.y);
+        }
+
+        // 画嘴巴 👄
+        ctx.font = `${mouth.size}px Arial`;
+        ctx.fillText("👄", mouth.x, mouth.y);
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+        update();
+        draw();
+        animationId = requestAnimationFrame(gameLoop);
+    }
+
+    function gameOver() {
+        isPlaying = false;
+        cancelAnimationFrame(animationId);
+        
+        uiTitle.innerText = "游戏结束";
+        uiDesc.innerHTML = `你成功吃到了 <b>${score}</b> 坨便便！<br>口味真重啊！`;
+        startBtn.innerText = "再吃一次";
+        uiLayer.style.display = 'flex';
+    }
+
+    // 初始化画面
+    drawBackground();
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "40px Arial";
+    ctx.fillText("🐦", bird.x, bird.y);
+    ctx.font = "50px Arial";
+    ctx.fillText("👄", mouth.x, mouth.y);
+
+</script>
+</body>
+</html>
