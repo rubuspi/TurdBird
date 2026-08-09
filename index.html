@@ -29,7 +29,7 @@
             overflow: hidden;
             background: linear-gradient(135deg, #A4B29E, #838F7C); 
             width: 400px;
-            height: 800px;
+            height: 750px;
         }
         canvas {
             display: block;
@@ -93,7 +93,7 @@
     
     <div id="game-container">
         <!-- 一切都在 Canvas 里！ -->
-        <canvas id="gameCanvas" width="400" height="800"></canvas>
+        <canvas id="gameCanvas" width="400" height="750"></canvas>
         
         <div id="ui-layer">
             <h2 id="ui-title" style="font-size: 36px; margin-bottom: 10px; text-shadow: 2px 2px 0 #000;">食屎啦你！</h2>
@@ -209,8 +209,8 @@
 
     function drawBackground() {
         ctx.fillStyle = "#5D5248"; 
-        ctx.fillRect(30, WIRE_Y, 20, 800); 
-        ctx.fillRect(350, WIRE_Y, 20, 800); 
+        ctx.fillRect(30, WIRE_Y, 20, 750); 
+        ctx.fillRect(350, WIRE_Y, 20, 750); 
         
         ctx.strokeStyle = "#2C2C2C";
         ctx.lineWidth = 3;
