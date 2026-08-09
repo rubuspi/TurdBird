@@ -3,29 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>食屎啦你 - 小游戏</title>
+    <title>食屎啦你 💩</title>
     <style>
         body {
             margin: 0;
             padding: 0;
-            background-color: #333;
+            background-color: #24292E;
             display: flex;
             flex-direction: column;
             align-items: center;
             font-family: 'Microsoft YaHei', sans-serif;
-            touch-action: none; /* 防止手机端滑动屏幕 */
+            touch-action: none; 
         }
         h1 {
             color: #fff;
             text-shadow: 2px 2px 0px #000;
             margin: 10px 0;
+            font-size: 28px;
+            text-align: center;
         }
         #game-container {
             position: relative;
-            box-shadow: 0 0 20px rgba(0,0,0,0.8);
-            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border-radius: 12px;
             overflow: hidden;
-            background-color: #87CEEB; /* 天蓝色背景 */
+            background: linear-gradient(135deg, #A4B29E, #838F7C); 
+            width: 400px;
+            height: 600px;
         }
         canvas {
             display: block;
@@ -37,7 +41,8 @@
             color: #fff;
             font-size: 24px;
             font-weight: bold;
-            text-shadow: 2px 2px 2px #000;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+            z-index: 10;
         }
         #lives-board {
             position: absolute;
@@ -45,7 +50,8 @@
             left: 15px;
             color: #fff;
             font-size: 20px;
-            text-shadow: 2px 2px 2px #000;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.6);
+            z-index: 10;
         }
         #ui-layer {
             position: absolute;
@@ -57,41 +63,45 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            background: rgba(0, 0, 0, 0.6);
+            background: rgba(20, 25, 20, 0.7);
+            backdrop-filter: blur(4px);
             color: white;
             text-align: center;
+            z-index: 20;
         }
         button {
-            padding: 10px 30px;
+            padding: 12px 35px;
             font-size: 20px;
             font-weight: bold;
             color: #fff;
-            background-color: #FF4500;
-            border: 2px solid #fff;
-            border-radius: 25px;
+            background-color: #C4412F; 
+            border: none;
+            border-radius: 30px;
             cursor: pointer;
             margin-top: 20px;
-            transition: transform 0.1s;
+            box-shadow: 0 4px 0 #8C2E21;
         }
         button:active {
-            transform: scale(0.95);
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #8C2E21;
         }
     </style>
 </head>
 <body>
 
-    <h1>食屎啦你 💩</h1>
+    <h1>食屎啦你 💩<br> </h1>
     
     <div id="game-container">
+        <!-- 一切都在 Canvas 里！ -->
         <canvas id="gameCanvas" width="400" height="600"></canvas>
-        <div id="score-board">得分: 0</div>
-        <div id="lives-board">❤️❤️❤️</div>
         
         <div id="ui-layer">
             <h2 id="ui-title" style="font-size: 36px; margin-bottom: 10px; text-shadow: 2px 2px 0 #000;">食屎啦你！</h2>
             <p id="ui-desc" style="font-size: 16px;">控制嘴巴接住便便<br>支持: 左右键 / A,D / 鼠标 / 触摸</p>
             <button id="start-btn">开始游戏</button>
         </div>
+        <div id="score-board">得分: 0</div>
+        <div id="lives-board">❤️❤️❤️</div>
     </div>
 
 <script>
@@ -104,30 +114,21 @@
     const uiDesc = document.getElementById('ui-desc');
     const startBtn = document.getElementById('start-btn');
 
-    // 游戏状态
     let score = 0;
     let lives = 3;
     let isPlaying = false;
     let animationId;
-    let frameCount = 0;
 
-    // 游戏对象
-    const bird = { x: 200, y: 80, size: 40, speed: 3, dx: 3, dropTimer: 0 };
-    const mouth = { x: 200, y: 530, size: 50, speed: 7 };
+    // 🌟 电线定在 Y=155，鸟定在 Y=135。肚皮几乎贴在电线上！完美消除高跷腿！
+    const WIRE_Y = 155; 
+    const bird = { x: 200, y: 135, size: 100, speed: 3, dx: 3, dropTimer: 0 };
+    const mouth = { x: 200, y: 530, size: 55, speed: 7 };
     let poops = [];
 
-    // 键盘控制
     const keys = { ArrowLeft: false, ArrowRight: false, a: false, d: false };
+    window.addEventListener('keydown', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = true; });
+    window.addEventListener('keyup', (e) => { if(keys.hasOwnProperty(e.key)) keys[e.key] = false; });
 
-    // 监听键盘
-    window.addEventListener('keydown', (e) => {
-        if(keys.hasOwnProperty(e.key)) keys[e.key] = true;
-    });
-    window.addEventListener('keyup', (e) => {
-        if(keys.hasOwnProperty(e.key)) keys[e.key] = false;
-    });
-
-    // 监听鼠标/触摸 (移动端+PC端适配)
     function moveMouth(clientX) {
         const rect = canvas.getBoundingClientRect();
         let newX = clientX - rect.left;
@@ -139,8 +140,54 @@
     canvas.addEventListener('mousemove', (e) => { if(isPlaying) moveMouth(e.clientX); });
     canvas.addEventListener('touchmove', (e) => { if(isPlaying) moveMouth(e.touches[0].clientX); e.preventDefault(); }, {passive: false});
 
-    // 开始游戏
+    // 完整的 SVG，完美渐变，决不动它一分一毫
+    const pureSvg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="232" height="300" viewBox="0 0 232 300">
+      <defs>
+        <linearGradient id="gBelly" gradientUnits="userSpaceOnUse" x1="439.94" y1="593.57" x2="524.73" y2="691.54">
+          <stop stop-color="#ffffff" stop-opacity="1" offset="0" />
+          <stop stop-color="#ffffff" stop-opacity="1" offset="0.4" />
+          <stop stop-color="#1a1a1a" stop-opacity="1" offset="0.6" />
+          <stop stop-color="#1a1a1a" stop-opacity="1" offset="1" />
+        </linearGradient>
+        <linearGradient id="gBack" gradientUnits="userSpaceOnUse" x1="383.70" y1="446.50" x2="468.28" y2="599.33">
+          <stop stop-color="#040c21" offset="0"/><stop stop-color="#372f2a" offset="1"/>
+        </linearGradient>
+        <linearGradient id="gWing" gradientUnits="userSpaceOnUse" x1="360.05" y1="459.15" x2="371.70" y2="412.52">
+          <stop stop-color="#000000" offset="0"/><stop stop-color="#050d22" offset="1"/>
+        </linearGradient>
+        <linearGradient id="gThroat" gradientUnits="userSpaceOnUse" x1="329.72" y1="471.57" x2="336.08" y2="453.67">
+          <stop stop-color="#d45500" offset="0"/><stop stop-color="#aa4400" offset="1"/>
+        </linearGradient>
+        <linearGradient id="gHead" gradientUnits="userSpaceOnUse" x1="331.37" y1="416.81" x2="366.81" y2="415.52">
+          <stop stop-color="#091d14" offset="0"/><stop stop-color="#00002b" offset="1"/>
+        </linearGradient>
+      </defs>
+      <g transform="translate(-311.75, -398.02)">
+        <path d="m 319.91,460.65 c 0,0 0.17,19.98 2.49,28.81 3.56,13.54 9.73,26.65 17.98,37.97 8.42,11.54 19.86,20.73 31.30,29.31 9.08,6.80 29.31,17.31 29.31,17.31 0,0 25.92,17.86 37.30,28.64 14.85,14.08 39.96,46.63 39.96,46.63 l 39.30,45.96 3.33,2.66 -0.66,-2.66 -55.95,-69.94 4.66,0 14.65,10.65 9.32,2.66 46.63,55.95 3.99,0 -2.66,-1.99 L 481.62,616.03 375.70,433.51 z" fill="url(#gBelly)" />
+        <path d="m 438.53,600.63 27.79,32.50 -11.30,-18.37 8.94,8.47 -3.76,-8.94 10.36,10.36 14.13,8.00 -18.37,-19.31 34.85,32.03 -15.07,-24.02 -40.03,-48.51 1.41,7.53 18.84,25.43 -9.89,-10.36 0,5.18 6.12,8.47 -4.23,0.94 -15.54,-9.89 z" fill="#f2f2f2" />
+        <path d="m 332.40,402.86 c 0,0 7.26,-3.98 13.65,-4.32 17.24,-2.79 27.93,7.49 35.97,20.98 3.32,5.72 7.66,18.31 7.66,18.31 21.02,18.04 32.29,44.90 39.96,68.27 0,0 3.90,12.33 6.32,18.31 8.65,21.35 18.32,42.35 29.31,62.61 9.22,17.00 30.64,49.29 30.64,49.29 0,0 -26.08,-26.75 -37.30,-41.63 -27.92,-41.46 -51.73,-78.84 -75.60,-124.23 -4.20,-7.98 -6.83,-17.22 -10.65,-24.31 -1.72,-3.13 -4.32,-9.99 -4.32,-9.99 l -12.32,-4.99 -22.31,-8.99 c -1.04,-6.23 1.38,-13.36 -0.99,-19.31 z" fill="url(#gBack)" />
+        <path d="m 325.48,441.19 c 0,0 -4.98,10.56 -5.88,16.25 -0.39,2.48 -0.70,5.20 0.23,7.53 0.91,2.26 2.94,4.01 4.94,5.41 4.29,2.58 7.26,4.52 11.06,1.41 l 0,-1.64 c 10.31,2.14 23.19,-4.34 30.85,-11.06 1.05,-1.35 3.58,-2.34 4.00,-4.00 0.45,-1.79 0.33,-3.77 1.17,-5.41 4.81,-5.85 1.65,-10.34 -0.94,-16.25 -12.37,-4.12 -11.49,0.26 -16.01,1.17 z" fill="url(#gWing)" />
+        <path d="m 325.95,444.72 c 0,0 -5.05,10.68 -3.76,16.01 17.02,36.39 52.98,-33.56 31.08,-14.13 z" fill="url(#gThroat)" />
+        <path d="m 323.83,416.81 22.96,-5.65 3.41,0 c 0,0 7.40,0.69 10.83,2.00 1.76,0.67 4.82,2.94 4.82,2.94 0,0 -4.40,5.12 -7.41,6.35 -1.09,0.44 -3.53,0.23 -3.53,0.23 l -2.59,3.53 -25.67,-7.88 z" fill="url(#gHead)" />
+        <path d="m 322.54,414.57 c 0,0 0.41,-3.41 1.29,-4.82 3.09,-3.81 6.56,-6.04 10.71,-8.36 0.33,7.55 8.94,7.38 13.42,8.00 -0.55,2.33 -2.78,3.82 -6.47,4.59 -5.57,0.19 -25.48,6.29 -16.72,0.58 l -0.35,4.12 13.66,1.88 5.77,2.00 3.17,2.47 c 0,0 3.23,-0.52 4.71,0 10.86,6.11 15.19,13.66 6.47,23.08 -5.34,5.76 -16.12,5.34 -23.31,4.47 -5.21,-0.93 -7.40,-4.36 -9.53,-9.06 0,0 0.98,-7.53 0.70,-11.30 -0.30,-4.12 -2.59,-12.12 -2.59,-12.12 z" fill="#aa4400" />
+        <path d="m 311.82,419.52 c 2.94,-4.17 10.16,-4.84 11.77,-5.18 l 2.59,0.70 -0.94,1.88 c 0,0 6.80,1.89 10.89,2.53 4.97,0.04 8.07,2.38 11.48,5.94 l -0.94,0.23 c 0,0 -3.86,-2.95 -6.12,-3.76 -2.16,-0.77 -6.83,-0.94 -6.83,-0.94 l -7.30,1.17 -2.35,-0.23 c -4.72,-2.69 -8.16,-1.57 -12.24,-2.35 z" fill="#000000" />
+        <path d="m 352.22,416.19 c -0.03,-2.23 2.59,-4.72 4.82,-4.66 2.27,0.05 4.70,2.71 4.66,4.99 -0.03,2.04 -2.28,4.27 -4.32,4.32 -2.31,0.05 -5.12,-2.34 -5.16,-4.66 z" fill="#1a1a1a" />
+        <path transform="matrix(1.0263,0,0,0.9230,-4.85,37.94)" d="m 355.38,409.94 c 0,1.79 -1.41,3.24 -3.16,3.24 -1.74,0 -3.16,-1.45 -3.16,-3.24 0,-1.79 1.41,-3.24 3.16,-3.24 1.74,0 3.16,1.45 3.16,3.24 z" fill="#000000" />
+        <path transform="translate(100.42,13.32)" d="m 256.79,401.62 c 0,0.68 -0.55,1.24 -1.24,1.24 -0.68,0 -1.24,-0.55 -1.24,-1.24 0,-0.68 0.55,-1.24 1.24,-1.24 0.68,0 1.24,0.55 1.24,1.24 z" fill="#ffffff" />
+      </g>
+    </svg>`;
+
+    const birdImg = new Image();
+    const svgBlob = new Blob([pureSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const svgUrl = URL.createObjectURL(svgBlob);
+    
+    // 初始化直接画一帧
+    birdImg.onload = () => { draw(); };
+    birdImg.src = svgUrl;
+
     startBtn.addEventListener('click', () => {
+        if (isPlaying) return; 
         score = 0;
         lives = 3;
         poops = [];
@@ -161,114 +208,135 @@
     }
 
     function drawBackground() {
-        // 画电线杆
-        ctx.fillStyle = "#8B4513"; // 棕色木头
-        ctx.fillRect(30, 150, 20, 450); // 左杆
-        ctx.fillRect(350, 150, 20, 450); // 右杆
+        ctx.fillStyle = "#5D5248"; 
+        ctx.fillRect(30, WIRE_Y, 20, 600); 
+        ctx.fillRect(350, WIRE_Y, 20, 600); 
         
-        // 画电线
-        ctx.strokeStyle = "#444";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "#2C2C2C";
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.moveTo(0, 100);
-        ctx.lineTo(400, 100); // 鸟站的线
-        ctx.moveTo(0, 130);
-        ctx.lineTo(400, 130);
+        ctx.moveTo(0, WIRE_Y - 2); 
+        ctx.lineTo(400, WIRE_Y - 2); 
+        ctx.moveTo(0, WIRE_Y + 2);
+        ctx.lineTo(400, WIRE_Y + 2);
         ctx.stroke();
     }
 
-    function update() {
-        frameCount++;
+    // 🌟 画极短的腿！因为鸟的中心定在 135，电线在 155，腿只有区区 10 多像素的长度，极其贴合
+    function drawFeet(x, y, dx) {
+        ctx.save();
+        ctx.strokeStyle = "#1A1A1A"; 
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
         
-        // 难度曲线：随着分数增加，鸟移动变快，便便下落变快，拉屎频率变高
-        let difficultyMultiplier = 1 + (score * 0.05);
-        if(difficultyMultiplier > 2.5) difficultyMultiplier = 2.5; // 封顶难度
+        let legStartY = y + 10; 
+        let legEndY = WIRE_Y;
+        let leftX, rightX;
+        
+        if (dx < 0) {
+            leftX = x - 18;
+            rightX = x - 8;
+        } else {
+            leftX = x + 8;
+            rightX = x + 18;
+        }
 
-        // 嘴巴键盘移动逻辑
+        ctx.beginPath();
+        // 极短腿 1
+        ctx.moveTo(leftX, legStartY); ctx.lineTo(leftX - 1, legEndY); 
+        ctx.lineTo(leftX - 4, legEndY + 4); ctx.moveTo(leftX - 1, legEndY);
+        ctx.lineTo(leftX + 2, legEndY + 4); ctx.moveTo(leftX - 1, legEndY);
+        ctx.lineTo(leftX + 3, legEndY - 2);
+        
+        // 极短腿 2
+        ctx.moveTo(rightX, legStartY); ctx.lineTo(rightX + 1, legEndY); 
+        ctx.lineTo(rightX + 4, legEndY + 4); ctx.moveTo(rightX + 1, legEndY);
+        ctx.lineTo(rightX - 2, legEndY + 4); ctx.moveTo(rightX + 1, legEndY);
+        ctx.lineTo(rightX - 3, legEndY - 2);
+
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    function update() {
+        let difficultyMultiplier = 1 + (score * 0.05);
+        if(difficultyMultiplier > 2.5) difficultyMultiplier = 2.5; 
+
         if (keys.ArrowLeft || keys.a) mouth.x -= mouth.speed;
         if (keys.ArrowRight || keys.d) mouth.x += mouth.speed;
-        // 限制嘴巴不出界
+        
         if (mouth.x < mouth.size/2) mouth.x = mouth.size/2;
         if (mouth.x > canvas.width - mouth.size/2) mouth.x = canvas.width - mouth.size/2;
 
-        // 鸟的移动逻辑 (随机改变方向，碰到边缘反弹)
         bird.x += bird.dx * difficultyMultiplier;
+        
         if (bird.x <= 40 || bird.x >= canvas.width - 40) {
             bird.dx *= -1;
-        } else if (Math.random() < 0.02) { // 2%的概率突然调头
+        } else if (Math.random() < 0.02) { 
             bird.dx *= -1;
         }
 
-        // 鸟拉屎逻辑
         bird.dropTimer--;
         if (bird.dropTimer <= 0) {
+            let poopOffsetX = bird.dx > 0 ? -30 : 30; 
             poops.push({ 
-                x: bird.x, 
-                y: bird.y + 20, 
+                x: bird.x + poopOffsetX, 
+                // 修正了拉屎高度，刚好在电线下方一点点掉出
+                y: bird.y + 40, 
                 speed: (3 + Math.random() * 2) * difficultyMultiplier 
             });
-            // 随机下次拉屎的时间 (40 到 100 帧之间，随难度降低间隔)
             bird.dropTimer = Math.max(20, (60 + Math.random() * 40) / difficultyMultiplier);
         }
 
-        // 便便逻辑
         for (let i = poops.length - 1; i >= 0; i--) {
             let p = poops[i];
             p.y += p.speed;
 
-            // 碰撞检测 (圆形碰撞检测，让手感更好)
             let dx = p.x - mouth.x;
             let dy = p.y - mouth.y;
             let distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance < 35) { // 接到了！
+            if (distance < 35) { 
                 poops.splice(i, 1);
                 score++;
                 updateUI();
             } 
-            else if (p.y > canvas.height) { // 漏掉了
+            else if (p.y > canvas.height) { 
                 poops.splice(i, 1);
                 lives--;
                 updateUI();
                 
-                // 屏幕震动效果 (简单模拟)
                 canvas.style.transform = "translateX(5px)";
                 setTimeout(() => canvas.style.transform = "translateX(-5px)", 50);
                 setTimeout(() => canvas.style.transform = "translateX(0)", 100);
 
-                if (lives <= 0) {
-                    gameOver();
-                }
+                if (lives <= 0) gameOver();
             }
         }
     }
 
     function draw() {
-        // 清屏
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
         drawBackground();
+        drawFeet(bird.x, bird.y, bird.dx);
 
-        // 设置Emoji绘制属性
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
+        let aspect = 300 / 232; 
+        let renderWidth = bird.size;
+        let renderHeight = bird.size * aspect;
 
-        // 画鸟 🐦
-        ctx.font = `${bird.size}px Arial`;
-        // 如果鸟向左飞，反转画布画鸟（增加生动性）
         ctx.save();
         ctx.translate(bird.x, bird.y);
-        if(bird.dx < 0) { ctx.scale(-1, 1); }
-        ctx.fillText("🐦‍⬛", 0, 0);
+        
+        if (bird.dx > 0) ctx.scale(-1, 1);
+        
+        ctx.drawImage(birdImg, -renderWidth / 2, -renderHeight / 2, renderWidth, renderHeight);
         ctx.restore();
 
-        // 画便便 💩
-        ctx.font = "30px Arial";
-        for (let p of poops) {
-            ctx.fillText("💩", p.x, p.y);
-        }
-
-        // 画嘴巴 👄
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "32px Arial";
+        for (let p of poops) { ctx.fillText("💩", p.x, p.y); }
         ctx.font = `${mouth.size}px Arial`;
         ctx.fillText("👄", mouth.x, mouth.y);
     }
@@ -283,21 +351,11 @@
     function gameOver() {
         isPlaying = false;
         cancelAnimationFrame(animationId);
-        
-        uiTitle.innerText = "游戏结束";
-        uiDesc.innerHTML = `你成功吃到了 <b>${score}</b> 坨便便！<br>口味真重啊！`;
+        uiTitle.innerText = "Game Over";
+        uiDesc.innerHTML = `你成功吃到了 <b>${score}</b> 坨便便！`;
         startBtn.innerText = "再吃一次";
         uiLayer.style.display = 'flex';
     }
-
-    // 初始化画面
-    drawBackground();
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = "40px Arial";
-    ctx.fillText("🐦", bird.x, bird.y);
-    ctx.font = "50px Arial";
-    ctx.fillText("👄", mouth.x, mouth.y);
 
 </script>
 </body>
